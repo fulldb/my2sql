@@ -79,19 +79,24 @@ func GenForwardRollbackSqlFromBinEvent(i uint, cfg *ConfCmd, wg *sync.WaitGroup)
 			// fmt.Println(ev.Gtid)
 		}
 
-		if lastOrgSql != ev.Gtid+ev.OrgSql && ev.Gtid+ev.OrgSql != "" {
-			//将原始sql和gtid写入文件 original_sql.sql
-			lastOrgSql = ev.Gtid + ev.OrgSql
-			// fmt.Println("GTID:", ev.Gtid)
-			// fmt.Println("OrgSql:", ev.OrgSql)
-			_, err = buf_original_sql_file.WriteString("[original_sql]\nGTID=\"" + ev.Gtid + "\"\n" + "originalSql=```\n" + ev.OrgSql + "\n```\n")
-			if err != nil {
-				fmt.Println("writer file err", err)
-			}
-		}
 		//移动到打印原始sql之后
 		if !ev.IfRowsEvent {
 			continue
+		}
+
+		if lastOrgSql != ev.Gtid+ev.OrgSql && ev.Gtid+ev.OrgSql != "" {
+			//将原始sql和gtid写入文件 original_sql.sql
+			lastOrgSql = ev.Gtid + ev.OrgSql
+			// ev.BinEvent.Table
+			// fmt.Println("GTID:", ev.Gtid)
+			// fmt.Println("OrgSql:", ev.OrgSql)
+			// _, err = buf_original_sql_file.WriteString("[original_sql]\nGTID=\"" + ev.Gtid + "\"\n" + "originalSql=```\n" + ev.OrgSql + "\n```\n")
+			_, err = buf_original_sql_file.WriteString(fmt.Sprintf(`[original_sql]
+GTID=%s,timestamp=%v,time=%v
+originalSql="""%s"""`, ev.Gtid, ev.Timestamp, time.Unix(int64(ev.Timestamp), 0), ev.OrgSql))
+			if err != nil {
+				fmt.Println("writer file err", err)
+			}
 		}
 
 		posStr = GetPosStr(ev.MyPos.Name, ev.StartPos, ev.MyPos.Pos)
