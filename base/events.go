@@ -78,9 +78,6 @@ func GenForwardRollbackSqlFromBinEvent(i uint, cfg *ConfCmd, wg *sync.WaitGroup)
 		} else if ev.SqlType == "gtid" {
 			// fmt.Println(ev.Gtid)
 		}
-		if !ev.IfRowsEvent {
-			continue
-		}
 
 		if lastOrgSql != ev.Gtid+ev.OrgSql && ev.Gtid+ev.OrgSql != "" {
 			//将原始sql和gtid写入文件 original_sql.sql
@@ -92,6 +89,11 @@ func GenForwardRollbackSqlFromBinEvent(i uint, cfg *ConfCmd, wg *sync.WaitGroup)
 				fmt.Println("writer file err", err)
 			}
 		}
+		//移动到打印原始sql之后
+		if !ev.IfRowsEvent {
+			continue
+		}
+
 		posStr = GetPosStr(ev.MyPos.Name, ev.StartPos, ev.MyPos.Pos)
 		db = string(ev.BinEvent.Table.Schema)
 		tb = string(ev.BinEvent.Table.Table)
@@ -187,7 +189,7 @@ func GenForwardRollbackSqlFromBinEvent(i uint, cfg *ConfCmd, wg *sync.WaitGroup)
 				sqlArr = GenUpdateSqlsForOneRowsEvent(posStr, colsTypeNameFromMysql, colsTypeName, ev.BinEvent, colsDef, uniqueKeyIdx, cfg.FullColumns, false, cfg.SqlTblPrefixDb)
 			}
 		} else {
-			fmt.Println("unsupported query type %s to generate 2sql|rollback sql, it should one of insert|update|delete. %s", ev.SqlType, ev.MyPos.String())
+			fmt.Printf("unsupported query type %s to generate 2sql|rollback sql, it should one of insert|update|delete. %s\n", ev.SqlType, ev.MyPos.String())
 			continue
 		}
 		currentSqlForPrint = ForwardRollbackSqlOfPrint{sqls: sqlArr,
