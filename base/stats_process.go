@@ -34,6 +34,7 @@ type BinEventStats struct {
 	RowCnt        uint32
 	QuerySql      string        // for type=query
 	ParsedSqlInfo *dsql.SqlInfo // for ddl
+	RawDataSize   int64
 }
 
 type OrgSqlPrint struct {
@@ -45,16 +46,17 @@ type OrgSqlPrint struct {
 }
 
 type BinEventStatsPrint struct {
-	Binlog    string
-	StartTime uint32
-	StopTime  uint32
-	StartPos  uint32
-	StopPos   uint32
-	Database  string
-	Table     string
-	Inserts   uint32
-	Updates   uint32
-	Deletes   uint32
+	Binlog      string
+	StartTime   uint32
+	StopTime    uint32
+	StartPos    uint32
+	StopPos     uint32
+	Database    string
+	Table       string
+	Inserts     uint32
+	Updates     uint32
+	Deletes     uint32
+	RawDataSize int64
 }
 
 type BigLongTrxInfo struct {
@@ -157,6 +159,7 @@ func GetDbTbAndQueryAndRowCntFromBinevent(ev *replication.BinlogEvent) (string, 
 }
 
 func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
+	// var binEventStatsPrints = make([]BinEventStatsPrint, 0)
 	defer wg.Done()
 
 	var (
@@ -179,6 +182,8 @@ func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
 			// new binlog
 			//print stats
 			for _, oneSt := range statsPrintArr {
+				// var binEventStatsPrint = *oneSt
+				// binEventStatsPrints = append(binEventStatsPrints, binEventStatsPrint)
 				cfg.StatFH.WriteString(GetStatsPrintContentLine(oneSt))
 			}
 			statsPrintArr = map[string]*BinEventStatsPrint{}
@@ -239,7 +244,7 @@ func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
 			//stats
 			if _, ok := statsPrintArr[oneTbKey]; !ok {
 				statsPrintArr[oneTbKey] = &BinEventStatsPrint{Binlog: st.Binlog, StartTime: st.Timestamp, StartPos: st.StartPos,
-					Database: st.Database, Table: st.Table, Inserts: 0, Updates: 0, Deletes: 0}
+					Database: st.Database, Table: st.Table, Inserts: 0, Updates: 0, Deletes: 0, RawDataSize: 0}
 			}
 			switch st.QueryType {
 			case "insert":
@@ -249,6 +254,7 @@ func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
 			case "delete":
 				statsPrintArr[oneTbKey].Deletes += st.RowCnt
 			}
+			statsPrintArr[oneTbKey].RawDataSize += st.RawDataSize //增加统计binlog大小
 			statsPrintArr[oneTbKey].StopTime = st.Timestamp
 			statsPrintArr[oneTbKey].StopPos = st.StopPos
 		}
@@ -257,6 +263,8 @@ func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
 
 			//print stats
 			for _, oneSt := range statsPrintArr {
+				// var binEventStatsPrint = *oneSt
+				// binEventStatsPrints = append(binEventStatsPrints, binEventStatsPrint)
 				cfg.StatFH.WriteString(GetStatsPrintContentLine(oneSt))
 			}
 			//statFH.WriteString("\n")
@@ -270,18 +278,26 @@ func ProcessBinEventStats(cfg *ConfCmd, wg *sync.WaitGroup) {
 	}
 	//print stats
 	for _, oneSt := range statsPrintArr {
+		// var binEventStatsPrint = *oneSt
+		// binEventStatsPrints = append(binEventStatsPrints, binEventStatsPrint)
 		cfg.StatFH.WriteString(GetStatsPrintContentLine(oneSt))
 	}
 	log.Info("exit thread to analyze statistics from binlog")
+
+	// var statsOrderBytesPrints = make([]BinEventStatsPrint, 0)
+
+	// for _,oneSt := range  binEventStatsPrints{
+
+	// }
 
 }
 
 func GetStatsPrintContentLine(st *BinEventStatsPrint) string {
 	//[binlog, starttime, stoptime, startpos, stoppos, inserts, updates, deletes, database, table]
-	return fmt.Sprintf("%-17s %-19s %-19s %-10d %-10d %-8d %-8d %-8d %-15s %-20s\n",
+	return fmt.Sprintf("%-17s %-19s %-19s %-10d %-10d %-8d %-8d %-8d %-15s %-20s %-20d\n",
 		st.Binlog, GetDatetimeStr(int64(st.StartTime), int64(0), constvar.DATETIME_FORMAT_NOSPACE),
 		GetDatetimeStr(int64(st.StopTime), int64(0), constvar.DATETIME_FORMAT_NOSPACE),
-		st.StartPos, st.StopPos, st.Inserts, st.Updates, st.Deletes, st.Database, st.Table)
+		st.StartPos, st.StopPos, st.Inserts, st.Updates, st.Deletes, st.Database, st.Table, st.RawDataSize)
 }
 
 func GetBigLongTrxContentLine(blTrx BigLongTrxInfo) string {

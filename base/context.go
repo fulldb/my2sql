@@ -52,7 +52,7 @@ var (
 	GOptsValidFilterSql []string = []string{"insert", "update", "delete"}
 
 	GOptsValueRange map[string][]int = map[string][]int{
-		"PrintInterval":  []int{1, 600, 30},
+		"PrintInterval":  []int{1, 6000, 30},
 		"BigTrxRowLimit": []int{1, 30000, 10},
 		"LongTrxSeconds": []int{0, 3600, 1},
 		"InsertRows":     []int{1, 500, 30},

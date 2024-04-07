@@ -8,6 +8,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/siddontang/go-log/log"
+	"github.com/spf13/cast"
 )
 
 func ParserAllBinEventsFromRepl(cfg *ConfCmd) {
@@ -94,9 +95,10 @@ func SendBinlogEventRepl(cfg *ConfCmd) {
 			tbMapPos = ev.Header.LogPos - ev.Header.EventSize
 			// avoid mysqlbing mask the row event as unknown table row event
 		}
+		raw_data_size := cast.ToInt64(len(ev.RawData))
 		ev.RawData = []byte{} // we donnot need raw data
 
-		oneMyEvent := &MyBinEvent{MyPos: mysql.Position{Name: currentBinlog, Pos: ev.Header.LogPos}, StartPos: tbMapPos}
+		oneMyEvent := &MyBinEvent{MyPos: mysql.Position{Name: currentBinlog, Pos: ev.Header.LogPos}, StartPos: tbMapPos, RawDataSize: raw_data_size}
 		chkRe = oneMyEvent.CheckBinEvent(cfg, ev, &currentBinlog)
 
 		if chkRe == C_reContinue {
@@ -193,10 +195,10 @@ func SendBinlogEventRepl(cfg *ConfCmd) {
 		if sqlType != "" {
 			if sqlType == "query" {
 				cfg.StatChan <- BinEventStats{Timestamp: ev.Header.Timestamp, Binlog: currentBinlog, StartPos: ev.Header.LogPos - ev.Header.EventSize, StopPos: ev.Header.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType}
+					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
 			} else {
 				cfg.StatChan <- BinEventStats{Timestamp: ev.Header.Timestamp, Binlog: currentBinlog, StartPos: tbMapPos, StopPos: ev.Header.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType}
+					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
 			}
 		}
 

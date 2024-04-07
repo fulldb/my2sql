@@ -35,6 +35,7 @@ type MyBinEvent struct {
 	QuerySql    *dsql.SqlInfo // for ddl and binlog which is not row format
 	OrgSql      string        // for ddl and binlog which is not row format
 	Gtid        string        // gtid
+	RawDataSize int64         // raw binlog size bytes
 }
 
 func (this *MyBinEvent) CheckBinEvent(cfg *ConfCmd, ev *replication.BinlogEvent, currentBinlog *string) int {

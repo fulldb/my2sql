@@ -14,6 +14,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/juju/errors"
 	"github.com/siddontang/go-log/log"
+	"github.com/spf13/cast"
 )
 
 var (
@@ -184,11 +185,13 @@ func (this BinFileParser) MyParseReader(cfg *ConfCmd, r io.Reader, binlog *strin
 		} else if chRe == C_reFileEnd {
 			return C_reFileEnd, nil
 		}
+		//add binlog raw data size anlyize
+		raw_data_size := cast.ToInt64(len(rawData))
 
 		//binEvent := &replication.BinlogEvent{RawData: rawData, Header: h, Event: e}
 		binEvent := &replication.BinlogEvent{Header: h, Event: e} // we donnot need raw data
 		oneMyEvent := &MyBinEvent{MyPos: mysql.Position{Name: *binlog, Pos: h.LogPos},
-			StartPos: tbMapPos}
+			StartPos: tbMapPos, RawDataSize: raw_data_size}
 		//StartPos: h.LogPos - h.EventSize}
 		chRe = oneMyEvent.CheckBinEvent(cfg, binEvent, binlog)
 		if chRe == C_reBreak {
@@ -254,10 +257,10 @@ func (this BinFileParser) MyParseReader(cfg *ConfCmd, r io.Reader, binlog *strin
 		if sqlType != "" {
 			if sqlType == "query" {
 				cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: h.LogPos - h.EventSize, StopPos: h.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType}
+					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
 			} else {
 				cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: tbMapPos, StopPos: h.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType}
+					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
 			}
 		}
 
