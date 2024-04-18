@@ -18,7 +18,7 @@ import (
 var (
 	//gDdlRegexp *regexp.Regexp = regexp.MustCompile(C_ddlRegexp)
 	Stats_Result_Header_Column_names []string = []string{"binlog", "starttime", "stoptime",
-		"startpos", "stoppos", "inserts", "updates", "deletes", "database", "table"}
+		"startpos", "stoppos", "inserts", "updates", "deletes", "database", "table", "size_bytes"}
 	Stats_DDL_Header_Column_names        []string = []string{"datetime", "binlog", "startpos", "stoppos", "sql"}
 	Stats_BigLongTrx_Header_Column_names []string = []string{"binlog", "starttime", "stoptime", "startpos", "stoppos", "rows", "duration", "tables"}
 )
@@ -80,7 +80,7 @@ func GetBigLongTrxPrintHeaderLine(headers []string) string {
 
 func GetStatsPrintHeaderLine(headers []string) string {
 	//[binlog, starttime, stoptime, startpos, stoppos, inserts, updates, deletes, database, table,]
-	return fmt.Sprintf("%-17s %-19s %-19s %-10s %-10s %-8s %-8s %-8s %-15s %-20s\n", ConvertStrArrToIntferfaceArrForPrint(headers)...)
+	return fmt.Sprintf("%-17s %-19s %-19s %-10s %-10s %-8s %-8s %-8s %-15s %-20s %-20d\n", ConvertStrArrToIntferfaceArrForPrint(headers)...)
 }
 
 func GetDbTbAndQueryAndRowCntFromBinevent(ev *replication.BinlogEvent) (string, string, string, string, uint32) {
