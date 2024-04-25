@@ -80,7 +80,7 @@ func GetBigLongTrxPrintHeaderLine(headers []string) string {
 
 func GetStatsPrintHeaderLine(headers []string) string {
 	//[binlog, starttime, stoptime, startpos, stoppos, inserts, updates, deletes, database, table,]
-	return fmt.Sprintf("%-17s %-19s %-19s %-10s %-10s %-8s %-8s %-8s %-15s %-20s %-20d\n", ConvertStrArrToIntferfaceArrForPrint(headers)...)
+	return fmt.Sprintf("%-17s %-19s %-19s %-10s %-10s %-8s %-8s %-8s %-15s %-20s %-20s\n", ConvertStrArrToIntferfaceArrForPrint(headers)...)
 }
 
 func GetDbTbAndQueryAndRowCntFromBinevent(ev *replication.BinlogEvent) (string, string, string, string, uint32) {
