@@ -37,6 +37,7 @@ const (
 	C_reContinue = 1
 	C_reBreak    = 2
 	C_reFileEnd  = 3
+	C_rows       = 4
 )
 
 var (

@@ -41,6 +41,12 @@ type MyBinEvent struct {
 func (this *MyBinEvent) CheckBinEvent(cfg *ConfCmd, ev *replication.BinlogEvent, currentBinlog *string) int {
 	myPos := mysql.Position{Name: *currentBinlog, Pos: ev.Header.LogPos}
 
+	if cfg.IfSetStopDateTime {
+		if ev.Header.Timestamp >= cfg.StopDatetime {
+			log.Infof("stop to get event. StopDateTime set. current event Timestamp %d Stop DateTime  Timestamp %d", ev.Header.Timestamp, cfg.StopDatetime)
+			return C_reBreak
+		}
+	}
 	if ev.Header.EventType == replication.ROTATE_EVENT {
 		rotatEvent := ev.Event.(*replication.RotateEvent)
 		*currentBinlog = string(rotatEvent.NextLogName)
@@ -69,12 +75,6 @@ func (this *MyBinEvent) CheckBinEvent(cfg *ConfCmd, ev *replication.BinlogEvent,
 		}
 	}
 
-	if cfg.IfSetStopDateTime {
-		if ev.Header.Timestamp >= cfg.StopDatetime {
-			log.Infof("stop to get event. StopDateTime set. current event Timestamp %d Stop DateTime  Timestamp %d", ev.Header.Timestamp, cfg.StopDatetime)
-			return C_reBreak
-		}
-	}
 	if cfg.FilterSqlLen == 0 {
 		goto BinEventCheck
 	}
@@ -155,6 +155,9 @@ BinEventCheck:
 
 		this.BinEvent = wrEvent
 		this.IfRowsEvent = true
+	case replication.TRANSACTION_PAYLOAD_EVENT:
+		return C_rows
+		// ev.Event.(*replication.TransactionPayloadEvent)
 	case replication.QUERY_EVENT:
 		this.IfRowsEvent = false
 

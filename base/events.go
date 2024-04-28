@@ -202,6 +202,7 @@ originalSql="""%s"""`, ev.Gtid, ev.Timestamp, time.Unix(int64(ev.Timestamp), 0),
 				datetime: GetDatetimeStr(int64(ev.Timestamp), int64(0), constvar.DATETIME_FORMAT_NOSPACE),
 				trxIndex: ev.TrxIndex, trxStatus: ev.TrxStatus, gtid: ev.Gtid, orgSql: ev.OrgSql}}
 
+		// cfg.SqlChan <- currentSqlForPrint
 		for {
 			//fmt.Println("in thread", i)
 			G_HandlingBinEventIndex.lock.Lock()

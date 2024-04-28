@@ -25,6 +25,25 @@
 如果数据库名和表名不区分大小写，数据库名和表名要小写
 开始时间最好减去1分钟，结束时间最好加上一分钟
 sql文本最好能够唯一表示对应的sql。
+目前不支持binlog压缩。下一步计划增加binlog压缩支持。
+
+```
+
+对开源库github.com/go-mysql-org/go-mysql
+vendor/github.com/go-mysql-org/go-mysql/replication/parser.go
+增加全局函数
+```
+
+// added by momo
+func (p *BinlogParser) ParseHeader(data []byte) (*EventHeader, error) {
+	return p.parseHeader(data)
+}
+
+// added by momo
+func (p *BinlogParser) ParseEvent(h *EventHeader, data []byte, rawData []byte) (Event, error) {
+	return p.parseEvent(h, data, rawData)
+}
+
 ```
 
 # my2sql

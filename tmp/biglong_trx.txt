@@ -1,3 +1,1 @@
 binlog            starttime           stoptime            startpos   stoppos    rows     duration   tables
-mysqlbin_79533306.001306 2023-10-06_17:26:32 2023-10-06_17:26:33 245881630  245883505  0        1          [.(inserts=0, updates=0, deletes=0)]
-mysqlbin_79533306.001306 2023-10-06_17:27:29 2023-10-06_17:27:30 250365535  250368145  0        1          [.(inserts=0, updates=0, deletes=0)]

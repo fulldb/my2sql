@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	my "my2sql/base"
 	"my2sql/findbinlog"
 
+	//go get github.com/go-mysql-org/go-mysql@7c31dc4 ,下载较新的提交版本
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
@@ -24,8 +26,10 @@ func main() {
 		wg.Add(1)
 		go my.PrintExtraInfoForForwardRollbackupSql(my.GConfCmd, &wg)
 		for i := uint(1); i <= my.GConfCmd.Threads; i++ {
+			fmt.Println("开始-GenForwardRollbackSqlFromBinEvent", i)
 			wgGenSql.Add(1)
 			go my.GenForwardRollbackSqlFromBinEvent(i, my.GConfCmd, &wgGenSql)
+			fmt.Println("结束-GenForwardRollbackSqlFromBinEvent", i)
 		}
 	}
 	if my.GConfCmd.Mode == "repl" {
