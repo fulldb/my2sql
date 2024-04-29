@@ -1,1 +1,0 @@
-binlog            starttime           stoptime            startpos   stoppos    rows     duration   tables

@@ -204,10 +204,19 @@ func ParseBinlog(cfg *ConfCmd, ev *replication.BinlogEvent, oneMyEvent *MyBinEve
 
 	} else if sqlType == "gtid" {
 		gtid = sql
+		oneMyEvent.Gtid = gtid
 	} else if sqlType == "sql" {
 		orgSql = sql
+		oneMyEvent.OrgSql = orgSql
 	} else {
 		trxStatus = C_trxProcess
+	}
+
+	if oneMyEvent.OrgSql != "" && orgSql == "" {
+		orgSql = oneMyEvent.OrgSql
+	}
+	if oneMyEvent.Gtid != "" && gtid == "" {
+		gtid = oneMyEvent.Gtid
 	}
 
 	if cfg.WorkType != "stats" {
@@ -251,12 +260,6 @@ func ParseBinlog(cfg *ConfCmd, ev *replication.BinlogEvent, oneMyEvent *MyBinEve
 			oneMyEvent.Timestamp = ev.Header.Timestamp
 			oneMyEvent.TrxIndex = *trxIndex
 			oneMyEvent.TrxStatus = trxStatus
-			if gtid != "" {
-				oneMyEvent.Gtid = gtid
-			}
-			if orgSql != "" {
-				oneMyEvent.OrgSql = orgSql
-			}
 			cfg.EventChan <- *oneMyEvent
 		}
 	}

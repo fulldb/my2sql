@@ -54,7 +54,7 @@ func (this *MyBinEvent) CheckBinEvent(cfg *ConfCmd, ev *replication.BinlogEvent,
 		return C_reContinue
 	}
 
-	if cfg.IfSetStartFilePos {
+	if cfg.IfSetStartFilePos && cfg.Mode == "repl" {
 		cmpRe := myPos.Compare(cfg.StartFilePos)
 		if cmpRe == -1 {
 			return C_reContinue
@@ -234,6 +234,10 @@ func CheckBinHeaderCondition(cfg *ConfCmd, header *replication.EventHeader, curr
 		} else {
 			return C_reContinue
 		}
+	}
+	if header.EventType == replication.TRANSACTION_PAYLOAD_EVENT {
+		//处理binlog compress格式
+		return C_reProcess
 	}
 
 	return C_reProcess

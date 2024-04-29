@@ -374,7 +374,9 @@ func (this *ConfCmd) ParseCmdOptions() {
 	this.OpenTxResultFiles()
 
 	this.CheckCmdOptions()
-	this.CreateDB()
+	if this.Mode == "repl" {
+		this.CreateDB()
+	}
 
 }
 

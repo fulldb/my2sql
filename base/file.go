@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	toolkits "my2sql/toolkits"
 
@@ -105,18 +104,21 @@ func (this BinFileParser) MyParseOneBinlogFile(cfg *ConfCmd, name string) (int, 
 func (this BinFileParser) MyParseReader(cfg *ConfCmd, r io.Reader, binlog *string) (int, error) {
 	// process: 0, continue: 1, break: 2, EOF: 3
 	var (
-		err       error
-		n         int64
-		db        string = ""
-		tb        string = ""
-		sql       string = ""
-		sqlType   string = ""
-		rowCnt    uint32 = 0
-		trxStatus int    = 0
-		sqlLower  string = ""
-		tbMapPos  uint32 = 0
-		gtid      string = ""
-		orgSql    string = ""
+		err error
+		n   int64
+		// db            string = ""
+		// tb            string = ""
+		// sql           string = ""
+		// sqlType       string = ""
+		// rowCnt        uint32 = 0
+		// trxStatus     int    = 0
+		// sqlLower      string = ""
+		tbMapPos      uint32 = 0
+		gtid          string = ""
+		orgSql        string = ""
+		currentBinlog string = cfg.StartFile
+		binEventIdx   uint64 = 0
+		trxIndex      uint64 = 0
 	)
 
 	for {
@@ -190,7 +192,7 @@ func (this BinFileParser) MyParseReader(cfg *ConfCmd, r io.Reader, binlog *strin
 
 		//binEvent := &replication.BinlogEvent{RawData: rawData, Header: h, Event: e}
 		binEvent := &replication.BinlogEvent{Header: h, Event: e} // we donnot need raw data
-		oneMyEvent := &MyBinEvent{MyPos: mysql.Position{Name: *binlog, Pos: h.LogPos},
+		oneMyEvent := &MyBinEvent{Gtid: gtid, OrgSql: orgSql, MyPos: mysql.Position{Name: *binlog, Pos: h.LogPos},
 			StartPos: tbMapPos, RawDataSize: raw_data_size}
 		//StartPos: h.LogPos - h.EventSize}
 		chRe = oneMyEvent.CheckBinEvent(cfg, binEvent, binlog)
@@ -200,69 +202,111 @@ func (this BinFileParser) MyParseReader(cfg *ConfCmd, r io.Reader, binlog *strin
 			continue
 		} else if chRe == C_reFileEnd {
 			return C_reFileEnd, nil
-		}
-
-		db, tb, sqlType, sql, rowCnt = GetDbTbAndQueryAndRowCntFromBinevent(binEvent)
-		if sqlType == "query" {
-			sqlLower = strings.ToLower(sql)
-			if sqlLower == "begin" {
-				trxStatus = C_trxBegin
-				fileTrxIndex++
-			} else if sqlLower == "commit" {
-				trxStatus = C_trxCommit
-			} else if sqlLower == "rollback" {
-				trxStatus = C_trxRollback
-			} else if oneMyEvent.QuerySql != nil {
-				trxStatus = C_trxProcess
-				rowCnt = 1
-			}
-		} else if sqlType == "gtid" {
-			gtid = sql
-		} else if sqlType == "sql" {
-			orgSql = sql
-		} else {
-			trxStatus = C_trxProcess
-		}
-
-		if cfg.WorkType != "stats" {
-			ifSendEvent := false
-			if oneMyEvent.IfRowsEvent {
-
-				tbKey := GetAbsTableName(string(oneMyEvent.BinEvent.Table.Schema),
-					string(oneMyEvent.BinEvent.Table.Table))
-				_, err = G_TablesColumnsInfo.GetTableInfoJson(string(oneMyEvent.BinEvent.Table.Schema),
-					string(oneMyEvent.BinEvent.Table.Table))
-				if err != nil {
-					log.Fatalf(fmt.Sprintf("no table struct found for %s, it maybe dropped, skip it. RowsEvent position:%s",
-						tbKey, oneMyEvent.MyPos.String()))
+		} else if chRe == C_rows {
+			rows := binEvent.Event.(*replication.TransactionPayloadEvent)
+			for _, ev2 := range rows.Events {
+				raw_data_size := cast.ToInt64(len(ev2.RawData))
+				ev2.RawData = make([]byte, 0)
+				if ev2.Header.EventType == replication.TABLE_MAP_EVENT {
+					tbMapPos = ev2.Header.LogPos - ev2.Header.EventSize
+					// avoid mysqlbing mask the row event as unknown table row event
 				}
-				ifSendEvent = true
+				oneMyEvent2 := &MyBinEvent{Gtid: gtid, OrgSql: orgSql, MyPos: mysql.Position{Name: currentBinlog, Pos: ev2.Header.LogPos}, StartPos: tbMapPos, RawDataSize: raw_data_size}
+				chkRe2 := oneMyEvent2.CheckBinEvent(cfg, ev2, &currentBinlog)
+				if chkRe2 == C_reContinue {
+					continue
+				} else if chkRe2 == C_reBreak {
+					break
+				} else if chkRe2 == C_reFileEnd {
+					continue
+				}
+				err = ParseBinlog(cfg, ev2, oneMyEvent2, currentBinlog, raw_data_size, tbMapPos, &trxIndex, &binEventIdx)
+				if err != nil {
+					log.Fatalf(fmt.Sprintf("error to parse TRANSACTION_PAYLOAD_EVENT binlog event %v", err))
+					break
+				}
+				if oneMyEvent2.OrgSql != "" {
+					orgSql = oneMyEvent2.OrgSql
+				}
+				if oneMyEvent2.Gtid != "" {
+					gtid = oneMyEvent2.Gtid
+				}
 			}
-
-			if ifSendEvent {
-				fileBinEventHandlingIndex++
-				oneMyEvent.EventIdx = fileBinEventHandlingIndex
-				oneMyEvent.SqlType = sqlType
-				oneMyEvent.Timestamp = h.Timestamp
-				oneMyEvent.TrxIndex = fileTrxIndex
-				oneMyEvent.TrxStatus = trxStatus
-				oneMyEvent.Gtid = gtid
-				oneMyEvent.OrgSql = orgSql
-				cfg.EventChan <- *oneMyEvent
+		} else {
+			err = ParseBinlog(cfg, binEvent, oneMyEvent, currentBinlog, raw_data_size, tbMapPos, &trxIndex, &binEventIdx)
+			if err != nil {
+				log.Fatalf(fmt.Sprintf("error to parse binlog event %v", err))
+				break
 			}
-
+			if oneMyEvent.OrgSql != "" {
+				orgSql = oneMyEvent.OrgSql
+			}
+			if oneMyEvent.Gtid != "" {
+				gtid = oneMyEvent.Gtid
+			}
 		}
 
-		//output analysis result whatever the WorkType is
-		if sqlType != "" {
-			if sqlType == "query" {
-				cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: h.LogPos - h.EventSize, StopPos: h.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
-			} else {
-				cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: tbMapPos, StopPos: h.LogPos,
-					Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
-			}
-		}
+		// db, tb, sqlType, sql, rowCnt = GetDbTbAndQueryAndRowCntFromBinevent(binEvent)
+		// if sqlType == "query" {
+		// 	sqlLower = strings.ToLower(sql)
+		// 	if sqlLower == "begin" {
+		// 		trxStatus = C_trxBegin
+		// 		fileTrxIndex++
+		// 	} else if sqlLower == "commit" {
+		// 		trxStatus = C_trxCommit
+		// 	} else if sqlLower == "rollback" {
+		// 		trxStatus = C_trxRollback
+		// 	} else if oneMyEvent.QuerySql != nil {
+		// 		trxStatus = C_trxProcess
+		// 		rowCnt = 1
+		// 	}
+		// } else if sqlType == "gtid" {
+		// 	gtid = sql
+		// } else if sqlType == "sql" {
+		// 	orgSql = sql
+		// } else {
+		// 	trxStatus = C_trxProcess
+		// }
+
+		// if cfg.WorkType != "stats" {
+		// 	ifSendEvent := false
+		// 	if oneMyEvent.IfRowsEvent {
+
+		// 		tbKey := GetAbsTableName(string(oneMyEvent.BinEvent.Table.Schema),
+		// 			string(oneMyEvent.BinEvent.Table.Table))
+		// 		_, err = G_TablesColumnsInfo.GetTableInfoJson(string(oneMyEvent.BinEvent.Table.Schema),
+		// 			string(oneMyEvent.BinEvent.Table.Table))
+		// 		if err != nil {
+		// 			log.Fatalf(fmt.Sprintf("no table struct found for %s, it maybe dropped, skip it. RowsEvent position:%s",
+		// 				tbKey, oneMyEvent.MyPos.String()))
+		// 		}
+		// 		ifSendEvent = true
+		// 	}
+
+		// 	if ifSendEvent {
+		// 		fileBinEventHandlingIndex++
+		// 		oneMyEvent.EventIdx = fileBinEventHandlingIndex
+		// 		oneMyEvent.SqlType = sqlType
+		// 		oneMyEvent.Timestamp = h.Timestamp
+		// 		oneMyEvent.TrxIndex = fileTrxIndex
+		// 		oneMyEvent.TrxStatus = trxStatus
+		// 		oneMyEvent.Gtid = gtid
+		// 		oneMyEvent.OrgSql = orgSql
+		// 		cfg.EventChan <- *oneMyEvent
+		// 	}
+
+		// }
+
+		// //output analysis result whatever the WorkType is
+		// if sqlType != "" {
+		// 	if sqlType == "query" {
+		// 		cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: h.LogPos - h.EventSize, StopPos: h.LogPos,
+		// 			Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
+		// 	} else {
+		// 		cfg.StatChan <- BinEventStats{Timestamp: h.Timestamp, Binlog: *binlog, StartPos: tbMapPos, StopPos: h.LogPos,
+		// 			Database: db, Table: tb, QuerySql: sql, RowCnt: rowCnt, QueryType: sqlType, RawDataSize: raw_data_size}
+		// 	}
+		// }
 
 	}
 	return C_reFileEnd, nil
