@@ -1,4 +1,4 @@
-# my2sql 增强版本
+# my2sql 解析MySQL binlog生成回滚前滚sql 增强版本
 
 原版github地址：https://github.com/liuhr/my2sql/  
 增强版地址(本仓库)：https://github.com/fulldb/my2sql
