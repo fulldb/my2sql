@@ -20,6 +20,14 @@
 -gtid 表示只生成这个gtid中的dml 
 ```
 
+
+# TODO
+- [x] GTID事务为单位进行解析
+- [x] 闪回、回滚添加begin/commit事务标示
+- [ ] 解决issues
+- [ ] 增加web界面
+- [ ] 编译arm架构包
+
 注意事项：
 
 ```
@@ -267,6 +275,4 @@ timestamp
 # 感谢
  感谢[https://github.com/siddontang](https://github.com/siddontang)的binlog解析库， 感谢dropbox的sqlbuilder库，感谢my2fback、binlog_rollback
 
-# TODO
-- [x] GTID事务为单位进行解析
-- [x] 闪回、回滚添加begin/commit事务标示
+
